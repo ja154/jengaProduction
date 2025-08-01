@@ -116,11 +116,7 @@ const JengaPromptsPro: React.FC = () => {
     }
   };
 
-  const copyToClipboard = async ().
-    if (response) {
-      await navigator.clipboard.writeText(outputTab === 'text' ? response.primaryResult : JSON.stringify(response.structuredJSON, null, 2));
-    }
-  };
+
 
   return (
     <div className="p-6 max-w-md mx-auto bg-white rounded-lg shadow-md">
