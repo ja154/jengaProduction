@@ -1,32 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-
-// Define the structure of the incoming request
-interface JengaPromptsInput {
-  corePromptIdea: string; // The user's main prompt input
-  promptMode: 'Text' | 'Image' | 'Video' | 'Audio' | 'Code'; // The selected prompt mode
-  modifiers: {
-    contentTone?: string; // Tone of the content
-    outputFormat?: string; // Format of the output (e.g., JSON, text)
-    style?: string; // Artistic style for images
-    aspectRatio?: string; // Aspect ratio for images
-    lighting?: string; // Lighting conditions for images
-    framing?: string; // Framing perspective for images
-    cameraAngle?: string; // Camera angle for images
-    detailLevel?: string; // Level of detail for images or videos
-    audioType?: string; // Type of audio
-    vibeMood?: string; // Mood for audio
-    language?: string; // Programming language for code prompts
-    task?: string; // The task to be performed in code prompts
-  };
-  outputStructure: 'Descriptive Paragraph' | 'Simple JSON' | 'Detailed JSON'; // The format for output structure
-}
-
-interface JengaPromptsOutput {
-  primaryResult: string; // The main enhanced prompt output
-  structuredJSON?: Record<string, any>; // Optional structured JSON if requested
-  errorMessage?: string; // Error message if an error occurs
-}
+import { validatePromptInput } from "@/lib/validation";
+import { JengaPromptsInput, JengaPromptsOutput } from "@/lib/types";
 
 // Initialize OpenAI with API key from environment variable
 const openai = new OpenAI({
@@ -106,10 +81,20 @@ async function callOpenAI(data: JengaPromptsInput): Promise<JengaPromptsOutput> 
 export async function POST(req: Request) {
   console.log("Received POST request");
 
+  // Add CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
   try {
-    // Parse and validate the incoming JSON request body
-    const data: JengaPromptsInput = await req.json();
+    // Parse the incoming JSON request body
+    const rawData = await req.json();
     console.log("Parsed request data:", JSON.stringify(data));
+
+    // Validate the input data
+    const data = validatePromptInput(rawData);
 
     // Validate that the selected output format is supported
     if (!["Descriptive Paragraph", "Simple JSON", "Detailed JSON"].includes(data.outputStructure)) {
@@ -128,15 +113,39 @@ export async function POST(req: Request) {
     console.log("Prompt enhancement completed successfully");
 
     // Return the structured response
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(result, { status: 200, headers });
   } catch (error) {
     console.error("Error in POST handler:", error);
+    
+    // Handle validation errors specifically
+    if (error instanceof Error && error.name === 'ZodError') {
+      return NextResponse.json(
+        {
+          error: "Invalid input data.",
+          details: error.message,
+        },
+        { status: 400, headers }
+      );
+    }
+    
     return NextResponse.json(
       {
         error: "Failed to enhance prompt.",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 },
+      { status: 500, headers }
     );
   }
+}
+
+// Handle OPTIONS requests for CORS
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }

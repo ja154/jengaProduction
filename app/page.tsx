@@ -1,184 +1,110 @@
 'use client';
 import React, { useState, useEffect } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-
-interface JengaPromptsInput {
-  corePromptIdea: string;
-  promptMode: 'Text' | 'Image' | 'Video' | 'Audio' | 'Code';
-  modifiers: {
-    contentTone?: string;
-    outputFormat?: string;
-    style?: string;
-    aspectRatio?: string;
-    lighting?: string;
-    framing?: string;
-    cameraAngle?: string;
-    detailLevel?: string;
-    audioType?: string;
-    vibeMood?: string;
-    language?: string;
-    task?: string;
-  };
-  outputStructure: 'Descriptive Paragraph' | 'Simple JSON' | 'Detailed JSON';
-}
-
-interface JengaPromptsOutput {
-  primaryResult: string;
-  structuredJSON?: Record<string, any>;
-  errorMessage?: string;
-}
+import { JengaPromptsInput, JengaPromptsOutput, PromptHistory as PromptHistoryType } from "@/lib/types";
+import { APIClient } from "@/lib/api-client";
+import { usePromptHistory } from "@/hooks/usePromptHistory";
+import { useToast } from "@/hooks/useToast";
+import { PromptForm } from "@/components/PromptForm";
+import { PromptOutput } from "@/components/PromptOutput";
+import { PromptHistory } from "@/components/PromptHistory";
+import { Toaster } from "@/components/Toaster";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const JengaPromptsPro: React.FC = () => {
-  const [input, setInput] = useState<JengaPromptsInput>({
-    corePromptIdea: "",
-    promptMode: "Text",
-    modifiers: {},
-    outputStructure: "Descriptive Paragraph"
-  });
   const [response, setResponse] = useState<JengaPromptsOutput | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [outputTab, setOutputTab] = useState<'text' | 'json'>('text');
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<PromptHistoryType | null>(null);
+  const { 
+    history, 
+    favorites, 
+    addToHistory, 
+    toggleFavorite, 
+    clearHistory 
+  } = usePromptHistory();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (input.promptMode === 'Image') {
-      setInput(prev => ({
-        ...prev,
-        modifiers: {
-          ...prev.modifiers,
-          style: prev.modifiers.style || 'photorealistic',
-          aspectRatio: prev.modifiers.aspectRatio || '16:9',
-        }
-      }));
-    }
-  }, [input.promptMode]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const modifierKeys = [
-      "contentTone", "outputFormat", "style", "aspectRatio",
-      "lighting", "framing", "cameraAngle", "detailLevel",
-      "audioType", "vibeMood", "language", "task"
-    ];
-
-    if (modifierKeys.includes(name)) {
-      setInput(prev => ({
-        ...prev,
-        modifiers: {
-          ...prev.modifiers,
-          [name]: value
-        }
-      }));
-    } else {
-      setInput(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleSelectChange = (value: string) => {
-    setInput(prev => ({ ...prev, promptMode: value as 'Text' | 'Image' | 'Video' | 'Audio' | 'Code' }));
-  };
-
-  const toggleOutputTab = (tab: 'text' | 'json') => {
-    setOutputTab(tab);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (input: JengaPromptsInput) => {
     setLoading(true);
-    setError(null);
+    setResponse(null);
+    setSelectedHistoryItem(null);
 
     try {
-      const response = await fetch('/api', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(input),
+      const result = await APIClient.enhancePrompt(input);
+      setResponse(result);
+      
+      // Add to history
+      const historyItem: PromptHistoryType = {
+        id: Date.now().toString(),
+        input,
+        output: result,
+        timestamp: new Date(),
+      };
+      addToHistory(historyItem);
+      
+      toast({
+        title: "Prompt enhanced successfully!",
+        description: "Your enhanced prompt is ready.",
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || 'Failed to fetch');
-      }
-
-      const data: JengaPromptsOutput = await response.json();
-      setResponse(data);
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({
+        title: "Enhancement failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-
+  const handleViewHistoryItem = (item: PromptHistoryType) => {
+    setSelectedHistoryItem(item);
+    setResponse(item.output);
+  };
 
   return (
-    <div className="p-6 max-w-md mx-auto bg-white rounded-lg shadow-md">
-      <Card>
-        <CardHeader>
-          <CardTitle>JengaPrompts Pro</CardTitle>
-          <CardDescription>A toolkit for enhancing prompts across multiple modalities.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <Label htmlFor="corePromptIdea">Core Prompt Idea</Label>
-            <Textarea name="corePromptIdea" value={input.corePromptIdea} onChange={handleChange} required />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <header className="text-center py-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            JengaPrompts Pro
+          </h1>
+          <p className="text-gray-600 mt-2 text-lg">
+            Transform your ideas into powerful, detailed prompts across multiple modalities
+          </p>
+        </header>
 
-            <Label htmlFor="promptMode">Select Prompt Mode</Label>
-            <Select onValueChange={handleSelectChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select mode" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Text">Text</SelectItem>
-                <SelectItem value="Image">Image</SelectItem>
-                <SelectItem value="Video">Video</SelectItem>
-                <SelectItem value="Audio">Audio</S
-electItem>
-                <SelectItem value="Code">Code</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Additional inputs for modifiers can be conditionally rendered based on promptMode */}
-            {input.promptMode === 'Image' && (
-              <>
-                <Label htmlFor="style">Style</Label>
-                <Input name="style" value={input.modifiers.style} onChange={handleChange} />
-                <Label htmlFor="aspectRatio">Aspect Ratio</Label>
-                <Input name="aspectRatio" value={input.modifiers.aspectRatio} onChange={handleChange} />
-                <Label htmlFor="lighting">Lighting</Label>
-                <Input name="lighting" value={input.modifiers.lighting} onChange={handleChange} />
-                <Label htmlFor="framing">Framing</Label>
-                <Input name="framing" value={input.modifiers.framing} onChange={handleChange} />
-                <Label htmlFor="cameraAngle">Camera Angle</Label>
-                <Input name="cameraAngle" value={input.modifiers.cameraAngle} onChange={handleChange} />
-              </>
+        <Tabs defaultValue="create" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+            <TabsTrigger value="create">Create Prompt</TabsTrigger>
+            <TabsTrigger value="history">History & Favorites</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="create" className="space-y-8">
+            <PromptForm onSubmit={handleSubmit} loading={loading} />
+            
+            {response && (
+              <PromptOutput 
+                output={response} 
+                onToggleFavorite={selectedHistoryItem ? () => toggleFavorite(selectedHistoryItem.id) : undefined}
+                isFavorite={selectedHistoryItem ? favorites.includes(selectedHistoryItem.id) : false}
+              />
             )}
-
-            <Button type="submit" className="mt-4" disabled={loading}>
-              {loading ? 'Generating...' : 'Generate Prompt'}
-            </Button>
-          </form>
-
-          {error && <p className="text-red-500">{error}</p>}
-          {response && (
-            <div className="mt-4">
-              <div className="flex space-x-2">
-                <Button variant="outline" onClick={() => toggleOutputTab('text')} className={outputTab === 'text' ? 'bg-gray-200' : ''}>Text</Button>
-                <Button variant="outline" onClick={() => toggleOutputTab('json')} className={outputTab === 'json' ? 'bg-gray-200' : ''}>JSON</Button>
-              </div>
-              <pre className="mt-2 p-2 border rounded bg-gray-100">{outputTab === 'text' ? response.primaryResult : JSON.stringify(response.structuredJSON, null, 2)}</pre>
-              <Button onClick={copyToClipboard} className="mt-2">Copy to Clipboard</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </TabsContent>
+          
+          <TabsContent value="history">
+            <PromptHistory
+              history={history}
+              favorites={favorites}
+              onToggleFavorite={toggleFavorite}
+              onClearHistory={clearHistory}
+              onViewPrompt={handleViewHistoryItem}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+      
+      <Toaster />
     </div>
   );
 };
