@@ -46,9 +46,38 @@ const JengaPromptsPro: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [outputTab, setOutputTab] = useState<'text' | 'json'>('text');
 
+  useEffect(() => {
+    if (input.promptMode === 'Image') {
+      setInput(prev => ({
+        ...prev,
+        modifiers: {
+          ...prev.modifiers,
+          style: prev.modifiers.style || 'photorealistic',
+          aspectRatio: prev.modifiers.aspectRatio || '16:9',
+        }
+      }));
+    }
+  }, [input.promptMode]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setInput(prev => ({ ...prev, [name]: value }));
+    const modifierKeys = [
+      "contentTone", "outputFormat", "style", "aspectRatio",
+      "lighting", "framing", "cameraAngle", "detailLevel",
+      "audioType", "vibeMood", "language", "task"
+    ];
+
+    if (modifierKeys.includes(name)) {
+      setInput(prev => ({
+        ...prev,
+        modifiers: {
+          ...prev.modifiers,
+          [name]: value
+        }
+      }));
+    } else {
+      setInput(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSelectChange = (value: string) => {
@@ -72,9 +101,10 @@ const JengaPromptsPro: React.FC = () => {
         },
         body: JSON.stringify(input),
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch');
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to fetch');
       }
 
       const data: JengaPromptsOutput = await response.json();
@@ -133,7 +163,7 @@ const JengaPromptsPro: React.FC = () => {
                 <Input name="cameraAngle" value={input.modifiers.cameraAngle} onChange={handleChange} />
               </>
             )}
-            
+
             <Button type="submit" className="mt-4" disabled={loading}>
               {loading ? 'Generating...' : 'Generate Prompt'}
             </Button>
