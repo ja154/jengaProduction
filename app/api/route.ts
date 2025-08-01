@@ -3,6 +3,11 @@ import OpenAI from "openai";
 import { validatePromptInput } from "@/lib/validation";
 import { JengaPromptsInput, JengaPromptsOutput } from "@/lib/types";
 
+// Check for OpenAI API key at module initialization
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error("OPENAI_API_KEY is not set. Please add it to your .env.local file.");
+}
+
 // Initialize OpenAI with API key from environment variable
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -81,17 +86,10 @@ async function callOpenAI(data: JengaPromptsInput): Promise<JengaPromptsOutput> 
 export async function POST(req: Request) {
   console.log("Received POST request");
 
-  // Add CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-
   try {
     // Parse the incoming JSON request body
     const rawData = await req.json();
-    console.log("Parsed request data:", JSON.stringify(data));
+    console.log("Parsed request data:", JSON.stringify(rawData));
 
     // Validate the input data
     const data = validatePromptInput(rawData);
@@ -113,7 +111,7 @@ export async function POST(req: Request) {
     console.log("Prompt enhancement completed successfully");
 
     // Return the structured response
-    return NextResponse.json(result, { status: 200, headers });
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error("Error in POST handler:", error);
     
@@ -124,7 +122,7 @@ export async function POST(req: Request) {
           error: "Invalid input data.",
           details: error.message,
         },
-        { status: 400, headers }
+        { status: 400 }
       );
     }
     
@@ -133,19 +131,9 @@ export async function POST(req: Request) {
         error: "Failed to enhance prompt.",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500, headers }
+      { status: 500 }
     );
   }
 }
 
-// Handle OPTIONS requests for CORS
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
+// OPTIONS requests are handled by middleware.ts
