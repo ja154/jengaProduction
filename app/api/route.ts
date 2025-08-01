@@ -74,7 +74,7 @@ async function callOpenAI(data: JengaPromptsInput): Promise<JengaPromptsOutput> 
           },
         },
       ],
-      tool_choice: "auto",
+      tool_choice: {"type": "function", "function": {"name": "enhance_prompt"}},
     });
 
     console.log("Received response from OpenAI API:", JSON.stringify(response));
@@ -86,6 +86,13 @@ async function callOpenAI(data: JengaPromptsInput): Promise<JengaPromptsOutput> 
       return {
         primaryResult: output.enhancedPrompt,
         structuredJSON: output.additionalInfo,
+      };
+    }
+
+    // Fallback for cases where the model returns a message directly
+    if (response.choices[0].message.content) {
+      return {
+        primaryResult: response.choices[0].message.content,
       };
     }
 
