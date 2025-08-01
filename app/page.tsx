@@ -143,7 +143,8 @@ const JengaPromptsPro: React.FC = () => {
                 <SelectItem value="Text">Text</SelectItem>
                 <SelectItem value="Image">Image</SelectItem>
                 <SelectItem value="Video">Video</SelectItem>
-                <SelectItem value="Audio">Audio</SelectItem>
+                <SelectItem value="Audio">Audio</S
+electItem>
                 <SelectItem value="Code">Code</SelectItem>
               </SelectContent>
             </Select>
