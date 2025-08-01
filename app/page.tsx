@@ -48,7 +48,23 @@ const JengaPromptsPro: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setInput(prev => ({ ...prev, [name]: value }));
+    const modifierKeys = [
+      "contentTone", "outputFormat", "style", "aspectRatio",
+      "lighting", "framing", "cameraAngle", "detailLevel",
+      "audioType", "vibeMood", "language", "task"
+    ];
+
+    if (modifierKeys.includes(name)) {
+      setInput(prev => ({
+        ...prev,
+        modifiers: {
+          ...prev.modifiers,
+          [name]: value
+        }
+      }));
+    } else {
+      setInput(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSelectChange = (value: string) => {
