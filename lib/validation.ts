@@ -1,28 +1,45 @@
-import { z } from 'zod';
-import { PROMPT_MODES, OUTPUT_STRUCTURES } from './types';
+import { JengaPromptsInput, PROMPT_MODES, OUTPUT_STRUCTURES } from './types';
 
-export const promptInputSchema = z.object({
-  corePromptIdea: z.string().min(1, 'Core prompt idea is required').max(1000, 'Core prompt idea must be less than 1000 characters'),
-  promptMode: z.enum(PROMPT_MODES),
-  modifiers: z.object({
-    contentTone: z.string().optional(),
-    outputFormat: z.string().optional(),
-    style: z.string().optional(),
-    aspectRatio: z.string().optional(),
-    lighting: z.string().optional(),
-    framing: z.string().optional(),
-    cameraAngle: z.string().optional(),
-    detailLevel: z.string().optional(),
-    audioType: z.string().optional(),
-    vibeMood: z.string().optional(),
-    language: z.string().optional(),
-    task: z.string().optional(),
-  }),
-  outputStructure: z.enum(OUTPUT_STRUCTURES),
-});
+// Simple validation without Zod for now
+export function validatePromptInput(input: unknown): JengaPromptsInput {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Invalid input: must be an object');
+  }
 
-export type ValidatedPromptInput = z.infer<typeof promptInputSchema>;
+  const data = input as any;
 
-export function validatePromptInput(input: unknown): ValidatedPromptInput {
-  return promptInputSchema.parse(input);
+  // Validate required fields
+  if (!data.corePromptIdea || typeof data.corePromptIdea !== 'string') {
+    throw new Error('Core prompt idea is required and must be a string');
+  }
+
+  if (data.corePromptIdea.length === 0) {
+    throw new Error('Core prompt idea cannot be empty');
+  }
+
+  if (data.corePromptIdea.length > 1000) {
+    throw new Error('Core prompt idea must be less than 1000 characters');
+  }
+
+  if (!data.promptMode || !PROMPT_MODES.includes(data.promptMode)) {
+    throw new Error('Invalid prompt mode');
+  }
+
+  if (!data.outputStructure || !OUTPUT_STRUCTURES.includes(data.outputStructure)) {
+    throw new Error('Invalid output structure');
+  }
+
+  // Validate modifiers object
+  if (!data.modifiers || typeof data.modifiers !== 'object') {
+    data.modifiers = {};
+  }
+
+  return {
+    corePromptIdea: data.corePromptIdea.trim(),
+    promptMode: data.promptMode,
+    modifiers: data.modifiers,
+    outputStructure: data.outputStructure,
+  };
 }
+
+export type ValidatedPromptInput = JengaPromptsInput;
